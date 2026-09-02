@@ -1,6 +1,4 @@
 import SwiftUI
-import ServiceManagement
-import os
 
 private enum RowFocus: Hashable {
     case title
@@ -10,12 +8,11 @@ private enum RowFocus: Hashable {
 
 struct TodoListView: View {
     @Environment(TodoStore.self) private var store
+    @Environment(UpdateChecker.self) private var updateChecker
     @State private var newTitle: String = ""
-    @State private var launchAtLogin: Bool = false
     @State private var isHoveringCard: Bool = false
+    @State private var showingSettings: Bool = false
     @FocusState private var focusedField: RowFocus?
-
-    private static let logger = Logger(subsystem: "com.hugoprinsloo.MenuTodo", category: "TodoListView")
 
     private static let scrollHeight: CGFloat = 640
     private static let scrollThreshold = 20
@@ -39,30 +36,38 @@ struct TodoListView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TextField("Todo", text: titleBinding)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color("Ink"))
-                .focused($focusedField, equals: .title)
-                .padding(.bottom, 8)
-                .onSubmit {
-                    let trimmed = store.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                    store.title = trimmed.isEmpty ? "Todo" : trimmed
-                    focusedField = .new
-                }
-
-            if store.todos.count > Self.scrollThreshold {
-                ScrollView {
-                    rows
-                }
-                .scrollIndicators(.hidden)
-                .frame(height: Self.scrollHeight)
+            if showingSettings {
+                SettingsView(showingSettings: $showingSettings)
             } else {
-                rows
-                    .frame(minHeight: Self.minCardHeight - Self.footerHeight, alignment: .top)
-            }
+                if let banner = updateChecker.bannerVersion {
+                    updateBanner(version: banner.version, url: banner.url)
+                }
 
-            footer
+                TextField("Todo", text: titleBinding)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Color("Ink"))
+                    .focused($focusedField, equals: .title)
+                    .padding(.bottom, 8)
+                    .onSubmit {
+                        let trimmed = store.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                        store.title = trimmed.isEmpty ? "Todo" : trimmed
+                        focusedField = .new
+                    }
+
+                if store.todos.count > Self.scrollThreshold {
+                    ScrollView {
+                        rows
+                    }
+                    .scrollIndicators(.hidden)
+                    .frame(height: Self.scrollHeight)
+                } else {
+                    rows
+                        .frame(minHeight: Self.minCardHeight - Self.footerHeight, alignment: .top)
+                }
+
+                footer
+            }
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
@@ -70,12 +75,13 @@ struct TodoListView: View {
         .frame(width: 340)
         .fixedSize(horizontal: false, vertical: true)
         .background(Color("Paper").ignoresSafeArea())
+        .animation(.easeInOut(duration: 0.2), value: updateChecker.bannerVersion?.version)
         .onHover { hovering in
             isHoveringCard = hovering
         }
         .onAppear {
             focusedField = .new
-            launchAtLogin = SMAppService.mainApp.status == .enabled
+            updateChecker.checkIfDue()
         }
         .overlay(alignment: .topLeading) {
             Button("Quit MenuTodo") {
@@ -85,6 +91,33 @@ struct TodoListView: View {
             .frame(width: 0, height: 0)
             .opacity(0)
         }
+    }
+
+    private func updateBanner(version: String, url: URL) -> some View {
+        HStack(spacing: 8) {
+            Text("MenuTodo \(version) is available")
+                .foregroundStyle(Color("Ink"))
+
+            Spacer()
+
+            Button("Download") {
+                NSWorkspace.shared.open(url)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color("Ink"))
+
+            Button("Skip") {
+                updateChecker.skippedVersion = version
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color("InkSecondary"))
+        }
+        .font(.system(size: 11, design: .monospaced))
+        .padding(.horizontal, 8)
+        .frame(height: 28)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color("Ink").opacity(0.06)))
+        .padding(.bottom, 8)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private var rows: some View {
@@ -116,10 +149,9 @@ struct TodoListView: View {
             }
 
             Menu {
-                Toggle("Launch at Login", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, newValue in
-                        setLaunchAtLogin(newValue)
-                    }
+                Button("Settings…") {
+                    showingSettings = true
+                }
                 Button("Quit MenuTodo") {
                     NSApplication.shared.terminate(nil)
                 }
@@ -135,18 +167,6 @@ struct TodoListView: View {
         .frame(height: Self.footerHeight)
         .opacity(isHoveringCard ? 1 : 0)
         .animation(.easeOut(duration: 0.15), value: isHoveringCard)
-    }
-
-    private func setLaunchAtLogin(_ enabled: Bool) {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        } catch {
-            Self.logger.error("Failed to update Launch at Login: \(error, privacy: .public)")
-        }
     }
 }
 
@@ -170,7 +190,9 @@ private struct TodoRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Button {
-                store.toggle(todo.id)
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    store.toggle(todo.id)
+                }
             } label: {
                 Image(systemName: todo.isDone ? "checkmark.square.fill" : "square")
                     .font(.system(size: 13, design: .monospaced))

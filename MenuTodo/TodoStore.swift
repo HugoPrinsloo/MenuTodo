@@ -14,7 +14,15 @@ final class TodoStore {
         }
     }
 
+    var autoSortDone: Bool {
+        didSet {
+            UserDefaults.standard.set(autoSortDone, forKey: Self.autoSortDoneDefaultsKey)
+            normalizeOrder()
+        }
+    }
+
     private static let titleDefaultsKey = "listTitle"
+    private static let autoSortDoneDefaultsKey = "autoSortDone"
 
     private let fileURL: URL
 
@@ -34,6 +42,7 @@ final class TodoStore {
         self.todos = []
         self.todos = Self.load(from: fileURL)
         self.title = UserDefaults.standard.string(forKey: Self.titleDefaultsKey) ?? "Todo"
+        self.autoSortDone = UserDefaults.standard.bool(forKey: Self.autoSortDoneDefaultsKey)
     }
 
     private static func load(from url: URL) -> [Todo] {
@@ -60,12 +69,14 @@ final class TodoStore {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         todos.append(Todo(title: trimmed))
+        normalizeOrder()
         persist()
     }
 
     func toggle(_ id: Todo.ID) {
         guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
         todos[index].isDone.toggle()
+        normalizeOrder()
         persist()
     }
 
@@ -87,6 +98,17 @@ final class TodoStore {
 
     func move(from source: IndexSet, to destination: Int) {
         todos.move(fromOffsets: source, toOffset: destination)
+        normalizeOrder()
+        persist()
+    }
+
+    /// When `autoSortDone` is on, stably partitions `todos` so open items come
+    /// first and done items follow, preserving relative order within each group.
+    private func normalizeOrder() {
+        guard autoSortDone else { return }
+        let sorted = todos.filter { !$0.isDone } + todos.filter { $0.isDone }
+        guard sorted != todos else { return }
+        todos = sorted
         persist()
     }
 }
