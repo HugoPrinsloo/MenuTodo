@@ -1,9 +1,6 @@
-# Xcode / xcodegen generated project
-*.xcodeproj
-Generated-Info.plist
-
 # Build output
 build/
+dist/
 DerivedData/
 
 # User-specific

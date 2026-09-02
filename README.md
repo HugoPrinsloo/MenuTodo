@@ -1,19 +1,33 @@
-# MenuTodo
+<p align="center">
+  <img src="docs/icon-preview.png" alt="MenuTodo icon" width="180">
+</p>
 
-A lightweight macOS menubar todo app. No Dock icon — lives in the menu bar
-as a checklist icon that shows the count of open todos.
+<h1 align="center">MenuTodo</h1>
 
-## Build
+<p align="center">
+  <img src="docs/screenshot.png" alt="MenuTodo open in the menu bar">
+</p>
 
-    ./build.sh
-    open build/MenuTodo.app
+MenuTodo is a tiny todo list that lives in your menu bar. No Dock icon, no window to hunt for, just a checklist icon up top that shows how many things you still have to do.
 
-Or drag `build/MenuTodo.app` to `/Applications`.
+Type into the box and hit Return to add something. Click the checkbox to tick it off. Hover a row and a grip handle shows up on the right, drag it to move the row somewhere else. The title at the top is editable too; click it and rename the list to whatever you're working on. Hover the popover itself and a footer slides in with how many items are left, a button to clear the done ones, and a small menu for launch at login and quitting.
 
-## Data
+Everything is saved as JSON in `~/Library/Application Support/MenuTodo/todos.json`.
 
-Todos are stored as JSON at `~/Library/Application Support/MenuTodo/todos.json`.
+## Download
 
-## Develop in Xcode
+Get the latest signed and notarized build from [Releases](https://github.com/HugoPrinsloo/MenuTodo/releases/latest).
 
-    xcodegen generate && open MenuTodo.xcodeproj
+## Build from source
+
+```
+brew install xcodegen
+xcodegen generate
+open MenuTodo.xcodeproj
+```
+
+Or just run `./build.sh`, which does the same and drops a built app in `build/`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
