@@ -1,0 +1,12 @@
+# Xcode / xcodegen generated project
+*.xcodeproj
+Generated-Info.plist
+
+# Build output
+build/
+DerivedData/
+
+# User-specific
+xcuserdata/
+*.xcuserstate
+.DS_Store
