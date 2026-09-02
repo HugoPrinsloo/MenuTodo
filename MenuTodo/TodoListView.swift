@@ -1,5 +1,15 @@
 import SwiftUI
 
+/// Each row reports its frame in the rows' coordinate space so a drag can find
+/// the slot under the pointer. Used only for drag targeting, never for layout,
+/// so there is no measurement feedback loop.
+private struct RowFramesKey: PreferenceKey {
+    static var defaultValue: [UUID: CGRect] { [:] }
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
 private enum RowFocus: Hashable {
     case title
     case new
@@ -12,6 +22,7 @@ struct TodoListView: View {
     @State private var newTitle: String = ""
     @State private var isHoveringCard: Bool = false
     @State private var showingSettings: Bool = false
+    @State private var rowFrames: [UUID: CGRect] = [:]
     @FocusState private var focusedField: RowFocus?
 
     private static let scrollHeight: CGFloat = 640
@@ -126,12 +137,15 @@ struct TodoListView: View {
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(store.todos) { todo in
-                TodoRow(todo: todo, focusedField: $focusedField)
+                TodoRow(todo: todo, focusedField: $focusedField, rowFrames: rowFrames)
             }
 
             NewTodoRow(newTitle: $newTitle, focusedField: $focusedField)
         }
         .coordinateSpace(name: TodoRow.rowsSpace)
+        .onPreferenceChange(RowFramesKey.self) { frames in
+            rowFrames = frames
+        }
     }
 
     private var footer: some View {
@@ -177,11 +191,14 @@ private struct TodoRow: View {
     @Environment(TodoStore.self) private var store
     let todo: Todo
     var focusedField: FocusState<RowFocus?>.Binding
+    let rowFrames: [UUID: CGRect]
     @State private var isHovering: Bool = false
     @State private var isDragging: Bool = false
 
     static let rowsSpace = "rows"
-    static let rowHeight: CGFloat = 28
+    /// Height of a single-line row; icons sit in a frame this tall so they line
+    /// up with the first line of a wrapped title.
+    static let lineHeight: CGFloat = 28
 
     private var titleBinding: Binding<String> {
         Binding(
@@ -191,7 +208,7 @@ private struct TodoRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             Button {
                 withAnimation(.easeInOut(duration: 0.18)) {
                     store.toggle(todo.id)
@@ -200,12 +217,15 @@ private struct TodoRow: View {
                 Image(systemName: todo.isDone ? "checkmark.square.fill" : "square")
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(todo.isDone ? Color("Ink") : Color("InkSecondary"))
+                    .frame(height: Self.lineHeight)
             }
             .buttonStyle(.plain)
 
-            TextField("", text: titleBinding)
+            TextField("", text: titleBinding, axis: .vertical)
                 .textFieldStyle(.plain)
+                .lineLimit(1...8)
                 .font(.system(size: 13, design: .monospaced))
+                .padding(.vertical, 5)
                 .strikethrough(todo.isDone)
                 .foregroundStyle(todo.isDone ? Color("InkSecondary") : Color("Ink"))
                 .focused(focusedField, equals: .row(todo.id))
@@ -228,14 +248,14 @@ private struct TodoRow: View {
                     return .handled
                 }
 
-            Spacer()
+            Spacer(minLength: 0)
 
             // Drag grip: the text field swallows mouse-downs, so the drag
             // gesture lives on this handle rather than the whole row.
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(Color("InkSecondary"))
-                .frame(width: 16, height: 16)
+                .frame(width: 16, height: Self.lineHeight)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 2, coordinateSpace: .named(Self.rowsSpace))
@@ -258,19 +278,27 @@ private struct TodoRow: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(Color("InkSecondary"))
-                    .frame(width: 16, height: 16)
+                    .frame(width: 16, height: Self.lineHeight)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .opacity(isHovering ? 1 : 0)
         }
         .animation(.easeOut(duration: 0.12), value: isHovering)
-        .frame(height: Self.rowHeight)
+        .frame(minHeight: Self.lineHeight)
         .contentShape(Rectangle())
         .background(
             RoundedRectangle(cornerRadius: 4)
                 .fill(Color("Ink").opacity(isDragging ? 0.08 : 0))
                 .padding(.horizontal, -6)
+        )
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: RowFramesKey.self,
+                    value: [todo.id: proxy.frame(in: .named(Self.rowsSpace))]
+                )
+            }
         )
         .zIndex(isDragging ? 1 : 0)
         .onHover { hovering in
@@ -288,12 +316,17 @@ private struct TodoRow: View {
     }
 
     /// Moves this row so that it occupies the slot under the pointer, given the
-    /// pointer's y position in the rows' coordinate space. Rows are fixed-height,
-    /// so the slot is simple arithmetic; called repeatedly during a drag.
+    /// pointer's y position in the rows' coordinate space. Rows wrap and vary in
+    /// height, so the slot comes from the measured row frames; called repeatedly
+    /// during a drag.
     private func reorder(toRowAt y: CGFloat) {
         guard let sourceIndex = store.todos.firstIndex(where: { $0.id == todo.id }) else { return }
-        let slot = Int((y / Self.rowHeight).rounded(.down))
-        let targetIndex = min(max(slot, 0), store.todos.count - 1)
+        var targetIndex = store.todos.count - 1
+        for (index, other) in store.todos.enumerated() {
+            guard let frame = rowFrames[other.id] else { continue }
+            if y < frame.maxY { targetIndex = index; break }
+        }
+        targetIndex = min(max(targetIndex, 0), store.todos.count - 1)
         guard targetIndex != sourceIndex else { return }
         let destination = sourceIndex < targetIndex ? targetIndex + 1 : targetIndex
         withAnimation(.easeOut(duration: 0.12)) {
@@ -308,21 +341,25 @@ private struct NewTodoRow: View {
     var focusedField: FocusState<RowFocus?>.Binding
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: "square")
                 .font(.system(size: 13, design: .monospaced))
                 .foregroundStyle(Color("InkSecondary"))
+                .frame(height: TodoRow.lineHeight)
 
-            TextField("", text: $newTitle)
+            TextField("", text: $newTitle, axis: .vertical)
                 .textFieldStyle(.plain)
+                .lineLimit(1...8)
                 .font(.system(size: 13, design: .monospaced))
+                .padding(.vertical, 5)
                 .foregroundStyle(Color("Ink"))
                 .focused(focusedField, equals: .new)
-                .overlay(alignment: .leading) {
+                .overlay(alignment: .topLeading) {
                     if newTitle.isEmpty {
                         Text("New todo…")
                             .font(.system(size: 13, design: .monospaced))
                             .foregroundStyle(Color("InkSecondary"))
+                            .padding(.vertical, 5)
                             .allowsHitTesting(false)
                     }
                 }
@@ -332,8 +369,8 @@ private struct NewTodoRow: View {
                     focusedField.wrappedValue = .new
                 }
 
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .frame(minHeight: 28)
+        .frame(minHeight: TodoRow.lineHeight)
     }
 }
