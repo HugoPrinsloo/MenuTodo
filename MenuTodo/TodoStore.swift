@@ -8,6 +8,14 @@ final class TodoStore {
 
     var todos: [Todo]
 
+    var title: String {
+        didSet {
+            UserDefaults.standard.set(title, forKey: Self.titleDefaultsKey)
+        }
+    }
+
+    private static let titleDefaultsKey = "listTitle"
+
     private let fileURL: URL
 
     init() {
@@ -25,6 +33,7 @@ final class TodoStore {
 
         self.todos = []
         self.todos = Self.load(from: fileURL)
+        self.title = UserDefaults.standard.string(forKey: Self.titleDefaultsKey) ?? "Todo"
     }
 
     private static func load(from url: URL) -> [Todo] {

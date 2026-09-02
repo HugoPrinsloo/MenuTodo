@@ -3,6 +3,7 @@ import ServiceManagement
 import os
 
 private enum RowFocus: Hashable {
+    case title
     case new
     case row(UUID)
 }
@@ -29,8 +30,27 @@ struct TodoListView: View {
         store.todos.filter { !$0.isDone }.count
     }
 
+    private var titleBinding: Binding<String> {
+        Binding(
+            get: { store.title },
+            set: { store.title = $0 }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            TextField("Todo", text: titleBinding)
+                .textFieldStyle(.plain)
+                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color("Ink"))
+                .focused($focusedField, equals: .title)
+                .padding(.bottom, 8)
+                .onSubmit {
+                    let trimmed = store.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                    store.title = trimmed.isEmpty ? "Todo" : trimmed
+                    focusedField = .new
+                }
+
             if store.todos.count > Self.scrollThreshold {
                 ScrollView {
                     rows
@@ -71,7 +91,6 @@ struct TodoListView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(store.todos) { todo in
                 TodoRow(todo: todo, focusedField: $focusedField)
-                Divider().overlay(Color("Rule"))
             }
 
             NewTodoRow(newTitle: $newTitle, focusedField: $focusedField)
@@ -135,6 +154,7 @@ private struct TodoRow: View {
     let todo: Todo
     var focusedField: FocusState<RowFocus?>.Binding
     @State private var isHovering: Bool = false
+    @State private var isDropTargeted: Bool = false
 
     private var titleBinding: Binding<String> {
         Binding(
@@ -168,6 +188,16 @@ private struct TodoRow: View {
                     store.delete(todo.id)
                     return .handled
                 }
+                .onKeyPress(.upArrow, phases: .down) { (press: KeyPress) -> KeyPress.Result in
+                    guard press.modifiers.contains(.option) else { return .ignored }
+                    move(by: -1)
+                    return .handled
+                }
+                .onKeyPress(.downArrow, phases: .down) { (press: KeyPress) -> KeyPress.Result in
+                    guard press.modifiers.contains(.option) else { return .ignored }
+                    move(by: 1)
+                    return .handled
+                }
 
             Spacer()
 
@@ -182,11 +212,41 @@ private struct TodoRow: View {
                 .buttonStyle(.plain)
             }
         }
-        .frame(minHeight: 26)
+        .frame(minHeight: 28)
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovering = hovering
         }
+        .overlay(alignment: .top) {
+            if isDropTargeted {
+                Color("Ink").frame(height: 1)
+            }
+        }
+        .draggable(todo.id.uuidString)
+        .dropDestination(for: String.self) { items, _ in
+            guard let uuidString = items.first, let sourceID = UUID(uuidString: uuidString) else { return false }
+            reorder(sourceID: sourceID, targetID: todo.id)
+            return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
+        }
+    }
+
+    private func move(by offset: Int) {
+        guard let sourceIndex = store.todos.firstIndex(where: { $0.id == todo.id }) else { return }
+        let targetIndex = sourceIndex + offset
+        guard store.todos.indices.contains(targetIndex) else { return }
+        let destination = sourceIndex < targetIndex ? targetIndex + 1 : targetIndex
+        store.move(from: IndexSet(integer: sourceIndex), to: destination)
+        focusedField.wrappedValue = .row(todo.id)
+    }
+
+    private func reorder(sourceID: UUID, targetID: UUID) {
+        guard let sourceIndex = store.todos.firstIndex(where: { $0.id == sourceID }),
+              let targetIndex = store.todos.firstIndex(where: { $0.id == targetID }),
+              sourceIndex != targetIndex else { return }
+        let destination = sourceIndex < targetIndex ? targetIndex + 1 : targetIndex
+        store.move(from: IndexSet(integer: sourceIndex), to: destination)
     }
 }
 
@@ -222,6 +282,6 @@ private struct NewTodoRow: View {
 
             Spacer()
         }
-        .frame(minHeight: 26)
+        .frame(minHeight: 28)
     }
 }
