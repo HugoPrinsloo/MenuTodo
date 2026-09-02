@@ -1,12 +1,12 @@
-// Renders the MenuTodo app icon: a warm paper square with an ink checkbox-and-checkmark glyph.
+// Renders the MenuTodo app icon: a neutral paper square with an ink checkbox-and-checkmark glyph.
 // Run: swift scripts/make-icon.swift
 import AppKit
 
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 let outDir = root.appendingPathComponent("MenuTodo/Assets.xcassets/AppIcon.appiconset")
 let canvas: CGFloat = 1024
-let paper = NSColor(srgbRed: 0xF7 / 255.0, green: 0xF2 / 255.0, blue: 0xE6 / 255.0, alpha: 1)
-let ink = NSColor(srgbRed: 0x2B / 255.0, green: 0x26 / 255.0, blue: 0x20 / 255.0, alpha: 1)
+let paper = NSColor(srgbRed: 0xF7 / 255.0, green: 0xF7 / 255.0, blue: 0xF5 / 255.0, alpha: 1)
+let ink = NSColor(srgbRed: 0x1D / 255.0, green: 0x1D / 255.0, blue: 0x1F / 255.0, alpha: 1)
 
 let symbolConfig = NSImage.SymbolConfiguration(pointSize: 640, weight: .bold)
 guard let glyph = NSImage(systemSymbolName: "checkmark.square", accessibilityDescription: nil)?

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/icon-preview.png" alt="MenuTodo icon" width="180">
+  <img src="docs/icon-preview-neutral.png" alt="MenuTodo icon" width="180">
 </p>
 
 <h1 align="center">MenuTodo</h1>
