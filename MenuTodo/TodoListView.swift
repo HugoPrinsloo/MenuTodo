@@ -7,28 +7,17 @@ private enum RowFocus: Hashable {
     case row(UUID)
 }
 
-/// Reports the measured height of its content up through the view tree so the
-/// scroll area can be sized to exactly fit the todos instead of expanding to
-/// fill the popover.
-private struct ContentHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat { 0 }
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 struct TodoListView: View {
     @Environment(TodoStore.self) private var store
     @State private var newTitle: String = ""
     @State private var launchAtLogin: Bool = false
     @State private var isHoveringCard: Bool = false
-    @State private var contentHeight: CGFloat = TodoListView.rowHeight
     @FocusState private var focusedField: RowFocus?
 
     private static let logger = Logger(subsystem: "com.hugoprinsloo.MenuTodo", category: "TodoListView")
 
-    private static let rowHeight: CGFloat = 26
-    private static let maxScrollHeight: CGFloat = 640
+    private static let scrollHeight: CGFloat = 640
+    private static let scrollThreshold = 20
     private static let minCardHeight: CGFloat = 140
     private static let footerHeight: CGFloat = 20
 
@@ -42,26 +31,16 @@ struct TodoListView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(store.todos) { todo in
-                        TodoRow(todo: todo, focusedField: $focusedField)
-                        Divider().overlay(Color("Rule"))
-                    }
-
-                    NewTodoRow(newTitle: $newTitle, focusedField: $focusedField)
+            if store.todos.count > Self.scrollThreshold {
+                ScrollView {
+                    rows
                 }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(key: ContentHeightKey.self, value: proxy.size.height)
-                    }
-                )
+                .scrollIndicators(.hidden)
+                .frame(height: Self.scrollHeight)
+            } else {
+                rows
+                    .frame(minHeight: Self.minCardHeight - Self.footerHeight, alignment: .top)
             }
-            .scrollIndicators(.hidden)
-            .onPreferenceChange(ContentHeightKey.self) { height in
-                contentHeight = height
-            }
-            .frame(height: min(contentHeight, Self.maxScrollHeight))
 
             footer
         }
@@ -69,7 +48,6 @@ struct TodoListView: View {
         .padding(.top, 12)
         .padding(.bottom, 8)
         .frame(width: 340)
-        .frame(minHeight: Self.minCardHeight)
         .fixedSize(horizontal: false, vertical: true)
         .background(Color("Paper").ignoresSafeArea())
         .onHover { hovering in
@@ -86,6 +64,17 @@ struct TodoListView: View {
             .keyboardShortcut("q", modifiers: .command)
             .frame(width: 0, height: 0)
             .opacity(0)
+        }
+    }
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(store.todos) { todo in
+                TodoRow(todo: todo, focusedField: $focusedField)
+                Divider().overlay(Color("Rule"))
+            }
+
+            NewTodoRow(newTitle: $newTitle, focusedField: $focusedField)
         }
     }
 
