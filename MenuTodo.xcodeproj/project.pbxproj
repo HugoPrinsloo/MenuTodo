@@ -13,17 +13,20 @@
 		882C2DDB64D33FC8AF4F1CBC /* TodoListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA4A04F5E6770D734FCE0CF /* TodoListView.swift */; };
 		A4BA3D722B88719BAA58E97D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B54215F61DFEF919C3EF248 /* SettingsView.swift */; };
 		B7468230AB1091C62DF5B091 /* MenuTodoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184477786CD4E8E20E161F02 /* MenuTodoApp.swift */; };
+		C682C73B8A826D2949285824 /* ReminderSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D82D1F0E5A527F707F2BE0 /* ReminderSync.swift */; };
 		EFDCF170517B38642F031A3B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 454A23FCE69C09C7932D91CE /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		06E2A2BE740C6347D896905E /* Todo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Todo.swift; sourceTree = "<group>"; };
 		0B54215F61DFEF919C3EF248 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		11D82D1F0E5A527F707F2BE0 /* ReminderSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderSync.swift; sourceTree = "<group>"; };
 		184477786CD4E8E20E161F02 /* MenuTodoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuTodoApp.swift; sourceTree = "<group>"; };
 		4293E8E860212AF73BD37A21 /* TodoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoStore.swift; sourceTree = "<group>"; };
 		454A23FCE69C09C7932D91CE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8C74213E9D7407E32B5890E5 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		BDA4A04F5E6770D734FCE0CF /* TodoListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoListView.swift; sourceTree = "<group>"; };
+		C42C5270DE652339DB0EBB09 /* MenuTodo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MenuTodo.entitlements; sourceTree = "<group>"; };
 		E60913F0BA955B8313D44F9D /* MenuTodo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MenuTodo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E860A93C07D6AB0F4703DAF6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -34,7 +37,9 @@
 			children = (
 				454A23FCE69C09C7932D91CE /* Assets.xcassets */,
 				E860A93C07D6AB0F4703DAF6 /* Info.plist */,
+				C42C5270DE652339DB0EBB09 /* MenuTodo.entitlements */,
 				184477786CD4E8E20E161F02 /* MenuTodoApp.swift */,
+				11D82D1F0E5A527F707F2BE0 /* ReminderSync.swift */,
 				0B54215F61DFEF919C3EF248 /* SettingsView.swift */,
 				06E2A2BE740C6347D896905E /* Todo.swift */,
 				BDA4A04F5E6770D734FCE0CF /* TodoListView.swift */,
@@ -132,6 +137,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B7468230AB1091C62DF5B091 /* MenuTodoApp.swift in Sources */,
+				C682C73B8A826D2949285824 /* ReminderSync.swift in Sources */,
 				A4BA3D722B88719BAA58E97D /* SettingsView.swift in Sources */,
 				4628F40445203F631836AB70 /* Todo.swift in Sources */,
 				882C2DDB64D33FC8AF4F1CBC /* TodoListView.swift in Sources */,
@@ -209,6 +215,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MenuTodo/MenuTodo.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = MenuTodo/Info.plist;
@@ -227,6 +234,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MenuTodo/MenuTodo.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = NO;
 				INFOPLIST_FILE = MenuTodo/Info.plist;

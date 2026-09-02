@@ -82,6 +82,9 @@ struct TodoListView: View {
         .onAppear {
             focusedField = .new
             updateChecker.checkIfDue()
+            if store.sync.isConnected {
+                Task { await store.sync.refresh() }
+            }
         }
         .overlay(alignment: .topLeading) {
             Button("Quit MenuTodo") {

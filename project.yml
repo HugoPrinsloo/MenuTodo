@@ -32,6 +32,12 @@ targets:
         LSApplicationCategoryType: public.app-category.productivity
         NSHumanReadableCopyright: "Copyright © 2026 Hugo Prinsloo. MIT License."
         NSPrincipalClass: NSApplication
+        NSRemindersFullAccessUsageDescription: "MenuTodo mirrors your list to a Reminders list you choose so it shows up on your other devices."
+        NSRemindersUsageDescription: "MenuTodo mirrors your list to a Reminders list you choose so it shows up on your other devices."
+    entitlements:
+      path: MenuTodo/MenuTodo.entitlements
+      properties:
+        com.apple.security.personal-information.calendars: true
     settings:
       base:
         PRODUCT_NAME: MenuTodo

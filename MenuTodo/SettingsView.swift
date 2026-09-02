@@ -1,4 +1,5 @@
 import SwiftUI
+import EventKit
 import ServiceManagement
 import os
 
@@ -7,6 +8,8 @@ struct SettingsView: View {
     @Environment(UpdateChecker.self) private var updateChecker
     @Binding var showingSettings: Bool
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
+    @State private var reminderLists: [EKCalendar] = []
+    @State private var remindersAuthorization: EKAuthorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
 
     private static let logger = Logger(subsystem: "com.hugoprinsloo.MenuTodo", category: "SettingsView")
 
@@ -21,11 +24,13 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 generalSection
+                remindersSection
                 updatesSection
             }
         }
         .onAppear {
             launchAtLogin = SMAppService.mainApp.status == .enabled
+            reloadReminders()
         }
     }
 
@@ -71,6 +76,87 @@ struct SettingsView: View {
             .controlSize(.small)
             .tint(Color("Ink"))
         }
+    }
+
+    private var remindersSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("REMINDERS")
+
+            switch remindersAuthorization {
+            case .denied, .restricted:
+                Text("Reminders access is off. Enable it in System Settings › Privacy & Security › Reminders.")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Color("InkSecondary"))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button("Open System Settings") {
+                    guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") else { return }
+                    NSWorkspace.shared.open(url)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(Color("Ink"))
+            default:
+                Picker("Sync with list", selection: listSelection) {
+                    Text("Not connected").tag(String?.none)
+                    ForEach(reminderLists, id: \.calendarIdentifier) { calendar in
+                        Text(calendar.title).tag(String?.some(calendar.calendarIdentifier))
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(Color("Ink"))
+                .tint(Color("Ink"))
+
+                if remindersAuthorization == .notDetermined {
+                    Button("Connect to Reminders…") {
+                        Task {
+                            _ = await store.sync.requestAccess()
+                            reloadReminders()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(Color("Ink"))
+                }
+
+                reminderStatusLine
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var reminderStatusLine: some View {
+        if let status = store.syncStatus {
+            Text(status)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color("InkSecondary"))
+        } else if let listTitle = store.sync.connectedListTitle {
+            Text("Two-way sync with \u{201C}\(listTitle)\u{201D}")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color("InkSecondary"))
+        }
+    }
+
+    private var listSelection: Binding<String?> {
+        Binding(
+            get: { store.reminderListID },
+            set: { newValue in
+                if let newValue {
+                    Task {
+                        await store.sync.connect(listID: newValue)
+                        reloadReminders()
+                    }
+                } else {
+                    store.sync.disconnect()
+                }
+            }
+        )
+    }
+
+    private func reloadReminders() {
+        remindersAuthorization = store.sync.authorizationStatus
+        reminderLists = store.sync.availableLists()
     }
 
     private var updatesSection: some View {
