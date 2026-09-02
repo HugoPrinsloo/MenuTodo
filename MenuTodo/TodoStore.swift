@@ -60,6 +60,12 @@ final class TodoStore {
         persist()
     }
 
+    func rename(_ id: Todo.ID, to title: String) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        todos[index].title = title
+        persist()
+    }
+
     func delete(_ id: Todo.ID) {
         todos.removeAll { $0.id == id }
         persist()
