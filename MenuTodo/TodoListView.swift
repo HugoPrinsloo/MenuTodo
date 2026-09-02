@@ -95,6 +95,7 @@ struct TodoListView: View {
 
             NewTodoRow(newTitle: $newTitle, focusedField: $focusedField)
         }
+        .coordinateSpace(name: TodoRow.rowsSpace)
     }
 
     private var footer: some View {
@@ -154,7 +155,10 @@ private struct TodoRow: View {
     let todo: Todo
     var focusedField: FocusState<RowFocus?>.Binding
     @State private var isHovering: Bool = false
-    @State private var isDropTargeted: Bool = false
+    @State private var isDragging: Bool = false
+
+    static let rowsSpace = "rows"
+    static let rowHeight: CGFloat = 28
 
     private var titleBinding: Binding<String> {
         Binding(
@@ -208,7 +212,16 @@ private struct TodoRow: View {
                 .foregroundStyle(Color("InkSecondary"))
                 .frame(width: 16, height: 16)
                 .contentShape(Rectangle())
-                .draggable(todo.id.uuidString)
+                .gesture(
+                    DragGesture(minimumDistance: 2, coordinateSpace: .named(Self.rowsSpace))
+                        .onChanged { value in
+                            isDragging = true
+                            reorder(toRowAt: value.location.y)
+                        }
+                        .onEnded { _ in
+                            isDragging = false
+                        }
+                )
                 .onHover { inside in
                     if inside { NSCursor.openHand.push() } else { NSCursor.pop() }
                 }
@@ -227,22 +240,16 @@ private struct TodoRow: View {
             .opacity(isHovering ? 1 : 0)
         }
         .animation(.easeOut(duration: 0.12), value: isHovering)
-        .frame(minHeight: 28)
+        .frame(height: Self.rowHeight)
         .contentShape(Rectangle())
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color("Ink").opacity(isDragging ? 0.08 : 0))
+                .padding(.horizontal, -6)
+        )
+        .zIndex(isDragging ? 1 : 0)
         .onHover { hovering in
             isHovering = hovering
-        }
-        .overlay(alignment: .top) {
-            if isDropTargeted {
-                Color("Ink").frame(height: 1)
-            }
-        }
-        .dropDestination(for: String.self) { items, _ in
-            guard let uuidString = items.first, let sourceID = UUID(uuidString: uuidString) else { return false }
-            reorder(sourceID: sourceID, targetID: todo.id)
-            return true
-        } isTargeted: { targeted in
-            isDropTargeted = targeted
         }
     }
 
@@ -255,12 +262,18 @@ private struct TodoRow: View {
         focusedField.wrappedValue = .row(todo.id)
     }
 
-    private func reorder(sourceID: UUID, targetID: UUID) {
-        guard let sourceIndex = store.todos.firstIndex(where: { $0.id == sourceID }),
-              let targetIndex = store.todos.firstIndex(where: { $0.id == targetID }),
-              sourceIndex != targetIndex else { return }
+    /// Moves this row so that it occupies the slot under the pointer, given the
+    /// pointer's y position in the rows' coordinate space. Rows are fixed-height,
+    /// so the slot is simple arithmetic; called repeatedly during a drag.
+    private func reorder(toRowAt y: CGFloat) {
+        guard let sourceIndex = store.todos.firstIndex(where: { $0.id == todo.id }) else { return }
+        let slot = Int((y / Self.rowHeight).rounded(.down))
+        let targetIndex = min(max(slot, 0), store.todos.count - 1)
+        guard targetIndex != sourceIndex else { return }
         let destination = sourceIndex < targetIndex ? targetIndex + 1 : targetIndex
-        store.move(from: IndexSet(integer: sourceIndex), to: destination)
+        withAnimation(.easeOut(duration: 0.12)) {
+            store.move(from: IndexSet(integer: sourceIndex), to: destination)
+        }
     }
 }
 
