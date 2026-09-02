@@ -201,17 +201,32 @@ private struct TodoRow: View {
 
             Spacer()
 
-            if isHovering {
-                Button {
-                    store.delete(todo.id)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Color("InkSecondary"))
+            // Drag grip: the text field swallows mouse-downs, so the drag
+            // gesture lives on this handle rather than the whole row.
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(Color("InkSecondary"))
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
+                .draggable(todo.id.uuidString)
+                .onHover { inside in
+                    if inside { NSCursor.openHand.push() } else { NSCursor.pop() }
                 }
-                .buttonStyle(.plain)
+                .opacity(isHovering ? 1 : 0)
+
+            Button {
+                store.delete(todo.id)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Color("InkSecondary"))
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .opacity(isHovering ? 1 : 0)
         }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
         .frame(minHeight: 28)
         .contentShape(Rectangle())
         .onHover { hovering in
@@ -222,7 +237,6 @@ private struct TodoRow: View {
                 Color("Ink").frame(height: 1)
             }
         }
-        .draggable(todo.id.uuidString)
         .dropDestination(for: String.self) { items, _ in
             guard let uuidString = items.first, let sourceID = UUID(uuidString: uuidString) else { return false }
             reorder(sourceID: sourceID, targetID: todo.id)
