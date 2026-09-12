@@ -18,7 +18,9 @@ private enum RowFocus: Hashable {
 
 struct TodoListView: View {
     @Environment(TodoStore.self) private var store
+    #if !APPSTORE
     @Environment(UpdateChecker.self) private var updateChecker
+    #endif
     @State private var newTitle: String = ""
     @State private var isHoveringCard: Bool = false
     @State private var showingSettings: Bool = false
@@ -50,9 +52,11 @@ struct TodoListView: View {
             if showingSettings {
                 SettingsView(showingSettings: $showingSettings)
             } else {
+                #if !APPSTORE
                 if let banner = updateChecker.bannerVersion {
                     updateBanner(version: banner.version, url: banner.url)
                 }
+                #endif
 
                 TextField("Todo", text: titleBinding)
                     .textFieldStyle(.plain)
@@ -86,13 +90,17 @@ struct TodoListView: View {
         .frame(width: 340)
         .fixedSize(horizontal: false, vertical: true)
         .background(Color("Paper").ignoresSafeArea())
+        #if !APPSTORE
         .animation(.easeInOut(duration: 0.2), value: updateChecker.bannerVersion?.version)
+        #endif
         .onHover { hovering in
             isHoveringCard = hovering
         }
         .onAppear {
             focusedField = .new
+            #if !APPSTORE
             updateChecker.checkIfDue()
+            #endif
             if store.sync.isConnected {
                 Task { await store.sync.refresh() }
             }
@@ -107,6 +115,7 @@ struct TodoListView: View {
         }
     }
 
+    #if !APPSTORE
     private func updateBanner(version: String, url: URL) -> some View {
         HStack(spacing: 8) {
             Text("MenuTodo \(version) is available")
@@ -133,6 +142,7 @@ struct TodoListView: View {
         .padding(.bottom, 8)
         .transition(.move(edge: .top).combined(with: .opacity))
     }
+    #endif
 
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {

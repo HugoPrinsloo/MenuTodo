@@ -3,6 +3,11 @@ options:
   bundleIdPrefix: com.hugoprinsloo
   deploymentTarget:
     macOS: "14.0"
+  defaultConfig: Debug
+configs:
+  Debug: debug
+  Release: release
+  AppStore: release
 settings:
   base:
     SWIFT_VERSION: 6.0
@@ -34,13 +39,45 @@ targets:
         NSPrincipalClass: NSApplication
         NSRemindersFullAccessUsageDescription: "MenuTodo mirrors your list to a Reminders list you choose so it shows up on your other devices."
         NSRemindersUsageDescription: "MenuTodo mirrors your list to a Reminders list you choose so it shows up on your other devices."
-    entitlements:
-      path: MenuTodo/MenuTodo.entitlements
-      properties:
-        com.apple.security.personal-information.calendars: true
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_NAME: MenuTodo
         PRODUCT_BUNDLE_IDENTIFIER: com.hugoprinsloo.MenuTodo
         ENABLE_APP_SANDBOX: NO
+        CODE_SIGN_ENTITLEMENTS: MenuTodo/MenuTodo.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      configs:
+        AppStore:
+          ENABLE_APP_SANDBOX: YES
+          CODE_SIGN_ENTITLEMENTS: MenuTodo/MenuTodo-AppStore.entitlements
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPSTORE"
+schemes:
+  MenuTodo:
+    build:
+      targets:
+        MenuTodo: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  MenuTodo-AppStore:
+    build:
+      targets:
+        MenuTodo: all
+    run:
+      config: AppStore
+    test:
+      config: AppStore
+    profile:
+      config: AppStore
+    analyze:
+      config: AppStore
+    archive:
+      config: AppStore

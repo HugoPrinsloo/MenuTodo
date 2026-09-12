@@ -1,3 +1,4 @@
+#if !APPSTORE
 import Foundation
 import os
 
@@ -112,3 +113,4 @@ final class UpdateChecker {
         return false
     }
 }
+#endif

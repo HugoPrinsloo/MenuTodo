@@ -5,7 +5,9 @@ import os
 
 struct SettingsView: View {
     @Environment(TodoStore.self) private var store
+    #if !APPSTORE
     @Environment(UpdateChecker.self) private var updateChecker
+    #endif
     @Binding var showingSettings: Bool
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
     @State private var reminderLists: [EKCalendar] = []
@@ -160,13 +162,19 @@ struct SettingsView: View {
     }
 
     private var updatesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("UPDATES")
+        #if APPSTORE
+        let title = "ABOUT"
+        #else
+        let title = "UPDATES"
+        #endif
+        return VStack(alignment: .leading, spacing: 8) {
+            sectionHeader(title)
 
             Text("Version \(version)")
                 .font(.system(size: 13, design: .monospaced))
                 .foregroundStyle(Color("InkSecondary"))
 
+            #if !APPSTORE
             Button("Check for updates") {
                 Task { await updateChecker.check() }
             }
@@ -187,9 +195,11 @@ struct SettingsView: View {
             .toggleStyle(.switch)
             .controlSize(.small)
             .tint(Color("Ink"))
+            #endif
         }
     }
 
+    #if !APPSTORE
     @ViewBuilder
     private var updateStatusLine: some View {
         switch updateChecker.state {
@@ -221,6 +231,7 @@ struct SettingsView: View {
                 .foregroundStyle(Color("InkSecondary"))
         }
     }
+    #endif
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
