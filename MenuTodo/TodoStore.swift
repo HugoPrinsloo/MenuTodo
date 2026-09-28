@@ -110,6 +110,13 @@ final class TodoStore {
         sync.pushRename(id)
     }
 
+    /// Local-only; never pushed to Reminders.
+    func setEstimate(_ minutes: Int?, for id: Todo.ID) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        todos[index].estimateMinutes = minutes
+        persist()
+    }
+
     func delete(_ id: Todo.ID) {
         let reminderIDs = todos.filter { $0.id == id }.compactMap(\.reminderID)
         todos.removeAll { $0.id == id }

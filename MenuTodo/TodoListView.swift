@@ -16,6 +16,27 @@ private enum RowFocus: Hashable {
     case row(UUID)
 }
 
+/// Selectable estimate durations, in minutes; `nil` clears the estimate.
+private let estimateOptions: [Int?] = [nil, 5, 15, 30, 45, 60, 90, 120, 180, 240]
+
+/// Compact duration text, e.g. "15m", "1h", "1h 30m".
+private func formattedEstimate(_ minutes: Int) -> String {
+    let hours = minutes / 60
+    let mins = minutes % 60
+    if hours > 0 && mins > 0 {
+        return "\(hours)h \(mins)m"
+    } else if hours > 0 {
+        return "\(hours)h"
+    } else {
+        return "\(mins)m"
+    }
+}
+
+private func estimateLabel(_ minutes: Int?) -> String {
+    guard let minutes else { return "None" }
+    return formattedEstimate(minutes)
+}
+
 struct TodoListView: View {
     @Environment(TodoStore.self) private var store
     #if !APPSTORE
@@ -38,6 +59,26 @@ struct TodoListView: View {
 
     private var openCount: Int {
         store.todos.filter { !$0.isDone }.count
+    }
+
+    private var openEstimateMinutes: Int {
+        store.todos.filter { !$0.isDone }.compactMap(\.estimateMinutes).reduce(0, +)
+    }
+
+    private var progressFraction: Double {
+        let todos = store.todos
+        guard !todos.isEmpty else { return 0 }
+
+        let estimates = todos.compactMap(\.estimateMinutes).map(Double.init)
+        let averageEstimate = estimates.isEmpty ? 1 : estimates.reduce(0, +) / Double(estimates.count)
+
+        func weight(_ todo: Todo) -> Double {
+            todo.estimateMinutes.map(Double.init) ?? averageEstimate
+        }
+
+        let totalWeight = todos.reduce(0) { $0 + weight($1) }
+        let doneWeight = todos.filter(\.isDone).reduce(0) { $0 + weight($1) }
+        return doneWeight / totalWeight
     }
 
     private var titleBinding: Binding<String> {
@@ -69,6 +110,11 @@ struct TodoListView: View {
                         store.title = trimmed.isEmpty ? "Todo" : trimmed
                         focusedField = .new
                     }
+
+                if !store.todos.isEmpty {
+                    ProgressBar(fraction: progressFraction)
+                        .padding(.bottom, 8)
+                }
 
                 if store.todos.count > Self.scrollThreshold {
                     ScrollView {
@@ -147,7 +193,7 @@ struct TodoListView: View {
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(store.todos) { todo in
-                TodoRow(todo: todo, focusedField: $focusedField, rowFrames: rowFrames)
+                TodoRow(todo: todo, focusedField: $focusedField, rowFrames: rowFrames, isCardHovered: isHoveringCard)
             }
 
             NewTodoRow(newTitle: $newTitle, focusedField: $focusedField)
@@ -158,10 +204,15 @@ struct TodoListView: View {
         }
     }
 
+    private var footerLeftText: String {
+        guard openEstimateMinutes > 0 else { return "\(openCount) left" }
+        return "\(openCount) left · ~\(formattedEstimate(openEstimateMinutes))"
+    }
+
     private var footer: some View {
         HStack(spacing: 10) {
             if !store.todos.isEmpty {
-                Text("\(openCount) left")
+                Text(footerLeftText)
                     .foregroundStyle(Color("InkSecondary"))
             }
 
@@ -197,11 +248,34 @@ struct TodoListView: View {
     }
 }
 
+/// Thin capsule showing the fraction of done todos. Hidden by the caller when
+/// the list is empty.
+private struct ProgressBar: View {
+    let fraction: Double
+
+    private static let height: CGFloat = 3
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color("Rule"))
+                Capsule()
+                    .fill(Color("Ink"))
+                    .frame(width: proxy.size.width * fraction)
+            }
+        }
+        .frame(height: Self.height)
+        .animation(.easeOut(duration: 0.2), value: fraction)
+    }
+}
+
 private struct TodoRow: View {
     @Environment(TodoStore.self) private var store
     let todo: Todo
     var focusedField: FocusState<RowFocus?>.Binding
     let rowFrames: [UUID: CGRect]
+    let isCardHovered: Bool
     @State private var isHovering: Bool = false
     @State private var isDragging: Bool = false
 
@@ -209,6 +283,10 @@ private struct TodoRow: View {
     /// Height of a single-line row; icons sit in a frame this tall so they line
     /// up with the first line of a wrapped title.
     static let lineHeight: CGFloat = 28
+
+    private var showsEstimateMenu: Bool {
+        todo.estimateMinutes != nil || isCardHovered
+    }
 
     private var titleBinding: Binding<String> {
         Binding(
@@ -259,6 +337,42 @@ private struct TodoRow: View {
                 }
 
             Spacer(minLength: 0)
+
+            Menu {
+                ForEach(estimateOptions, id: \.self) { option in
+                    Button {
+                        store.setEstimate(option, for: todo.id)
+                    } label: {
+                        if todo.estimateMinutes == option {
+                            Label(estimateLabel(option), systemImage: "checkmark")
+                        } else {
+                            Text(estimateLabel(option))
+                        }
+                    }
+                }
+            } label: {
+                Group {
+                    if let minutes = todo.estimateMinutes {
+                        Text(formattedEstimate(minutes))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Color("InkSecondary"))
+                    } else {
+                        Image(systemName: "clock")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Color("InkSecondary"))
+                    }
+                }
+                .frame(height: Self.lineHeight)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            // A borderless Menu is drawn by AppKit, which ignores opacity set
+            // inside its label; fade the Menu itself so the clock only shows
+            // while the card is hovered. Estimated rows always show their text.
+            .opacity(showsEstimateMenu ? 1 : 0)
+            .animation(.easeOut(duration: 0.12), value: showsEstimateMenu)
+            .allowsHitTesting(showsEstimateMenu)
 
             // Drag grip: the text field swallows mouse-downs, so the drag
             // gesture lives on this handle rather than the whole row.
